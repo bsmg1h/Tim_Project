@@ -1,0 +1,141 @@
+---
+title: "Tim-project"
+author: "zzq"
+date: "2017.02.20"
+output:
+  prettydoc::html_pretty:
+#    css: style.css
+    highlight: null
+    toc: yes
+runtime: shiny
+---
+
+```{r, include=FALSE}
+library(shiny)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(jpeg)
+
+make_jpg_from_vector = function(v,nolayer=c()){
+    v <- as.numeric(v)
+    len <- length(v)
+    res <- sqrt(len/3)
+    output <- array(dim = c(res,res,3))
+    output[,,1]<-matrix(v[1:res^2],nrow = res,byrow = T)
+    output[,,2]<-matrix(v[(res^2+1):(2*res^2)],nrow = res,byrow = T)
+    output[,,3]<-matrix(v[(res^2*2+1):(3*res^2)],nrow = res,byrow = T)
+    output[,,nolayer] <- 0
+    output
+}
+
+plot_jpg = function(jpg, add=FALSE){
+    res = dim(jpg)[1:2] # get the resolution
+    if (!add) # initialize an empty plot area if add==FALSE
+        plot(1,1,xlim=c(1,res[1]),ylim=c(1,res[2]),asp=1,type='n',xaxs='i',
+             yaxs='i',xaxt='n',yaxt='n',xlab='',ylab='',bty='n')
+    rasterImage(jpg,1,1,res[1],res[2])
+}
+
+
+
+Xtr <- fread("Xtr.csv",data.table = F)
+Xtr <- Xtr[,1:3072]
+Ytr <- fread("Ytr.csv",data.table = F)
+
+transform_jpg = function(Xtr,strength){
+    Xtr <- abs(Xtr)^(1/strength)*sign(Xtr)
+    Xtr <- (Xtr-min(Xtr))/(max(Xtr)-min(Xtr))
+    Xtr
+}
+
+
+```
+
+
+
+
+```{r, echo = FALSE}
+
+
+
+
+fluidPage(
+    fluidRow(
+        column(6,
+            sliderInput("PictureID", label = h3("PictureID"),
+                        min = 1, max = 5000, value = 1, step = 1 )
+        ),
+        column(6,    
+            sliderInput("ContrastRatio", label = h3("Contrast Ratio"),
+                        min = 1, max = 10, value = 3, step = 0.01 )
+        )
+    )
+    # fluidRow(
+    #     column(6,
+    #         radioButtons("Interpolate_Option", label = h3("Interpolate Option"),
+    #                     choices = list("Raw" = F,
+    #                                    "Interpolate" = T),
+    #                     selected = 1)
+    #     )
+    # )
+)
+
+P <- reactive({
+    Xtr %>% transform_jpg(strength = input$ContrastRatio)
+})
+
+# P <- reactive({
+#     Xtr1()[Ytr$Prediction == input$Group,]
+# })
+
+P_vector <- reactive({
+    P()[input$PictureID,]
+})
+
+fluidPage(
+    hr(),
+    fluidRow(
+        column(6,
+            renderPlot({
+                P_vector() %>% 
+                    make_jpg_from_vector() %>% 
+                    plot_jpg()
+            })
+        ),
+        column(6,
+            renderPlot({
+                P_vector() %>% 
+                    make_jpg_from_vector(nolayer = c(2,3)) %>% 
+                    plot_jpg()
+            })
+        )
+    ),
+    fluidRow(
+        column(6,
+            renderPlot({
+                P_vector() %>% 
+                    make_jpg_from_vector(nolayer = c(1,3)) %>% 
+                    plot_jpg()
+            })
+        ),
+        column(6,
+            renderPlot({
+                P_vector() %>% 
+                    make_jpg_from_vector(nolayer = c(1,2)) %>% 
+                    plot_jpg()
+            })
+        )
+    )
+    #fluidRow(column(3, verbatimTextOutput("value")))
+)
+
+
+# renderPlot({
+#     P_vector() %>% 
+#         make_jpg_from_vector() %>% 
+#         plot_jpg()
+# })
+
+
+```
